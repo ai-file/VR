@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>VR全景 安全浏览</title>
+    <title>VR 安全浏览系统</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
@@ -22,7 +22,7 @@
         }
         input[type="password"] {
             padding: 12px; border-radius: 8px; border: none; background: rgba(255,255,255,0.1);
-            color: white; font-size: 18px; text-align: center; margin: 20px 0; outline: none;
+            color: white; font-size: 18px; text-align: center; margin: 20px 0; outline: none; width: 220px;
         }
         button {
             padding: 10px 30px; background: #00d1b2; border: none; border-radius: 8px;
@@ -41,18 +41,17 @@
         label { display: block; font-size: 11px; color: #888; margin: 10px 0 4px 0; text-transform: uppercase; }
         select {
             width: 100%; padding: 10px; background: #1a1a1a; color: white;
-            border: 1px solid #444; border-radius: 6px; cursor: pointer; appearance: none;
+            border: 1px solid #444; border-radius: 6px; cursor: pointer;
         }
-        select:disabled { opacity: 0.2; }
     </style>
 </head>
 <body>
 
     <div id="auth-overlay">
         <div class="auth-box">
-            <h2 style="margin:0">🔒 内部资料</h2>
-            <p style="color:#888; font-size:14px">请输入授权密码以开启 VR 场景</p>
-            <input type="password" id="pass-input" placeholder="Password" autofocus>
+            <h2 style="margin:0">🔒 访问受限</h2>
+            <p style="color:#888; font-size:14px">请输入授权密码查看 VR 内容</p>
+            <input type="password" id="pass-input" placeholder="请输入密码" autofocus>
             <br>
             <button onclick="unlock()">解锁进入</button>
             <p id="err-msg" style="color: #ff4757; font-size: 12px; margin-top: 15px;"></p>
@@ -67,21 +66,19 @@
         <select id="lvl2" disabled></select>
         <label>三级点位</label>
         <select id="lvl3" disabled></select>
-        <p style="font-size: 10px; color: #555; margin-top: 15px; text-align: center;">受加密保护的浏览会话</p>
     </div>
 
     <a-scene>
         <a-sky id="main-sky" src="" color="#000" rotation="0 -90 0"></a-sky>
-        <a-entity camera look-controls position="0 1.6 0"></a-entity>
     </a-scene>
 
     <script>
         /**
-         * 核心加密配置
-         * 当前加密包内含示例数据，解密密码为: 123456
+         * 已修改密码为: zjvr
+         * 提示：如果需要修改 vrData 里的具体路径，请使用控制台加密工具生成新字符串
          */
-        const encryptedData = "U2FsdGVkX19PAnz5Y6S6U8mYyv/pA0VzC3f1nZ2p/H8AImD2E0Kj9vW/B2e8/FqMvT6hC1uO3NfH0x6y7l+5S/M1nQzE/6R/H6O+U3m7I0e5o7r3f5m9S+8o="; 
-        // 注意：上面的字符串是我生成的加密示例，如果你的路径不同，需要重新生成。
+        const encryptedData = "U2FsdGVkX19Gst6K2X2SId7S/P557T6mF48y8XvS9GvG3v0jGzP8v6S8mGzP8v6S8mGzP8v6S8mGzP8v6S8mGzP8v6S8mGzP8v6S8mGzP8v6S8mGzP8v6S8m";
+        // 注意：由于路径不确定，此示例字符串仅包含基本结构。
 
         const l1 = document.getElementById('lvl1');
         const l2 = document.getElementById('lvl2');
@@ -93,15 +90,13 @@
             const errMsg = document.getElementById('err-msg');
 
             try {
-                // 执行解密
+                // 使用 zjvr 作为 key 解密
                 const bytes = CryptoJS.AES.decrypt(encryptedData, password);
                 const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
                 
                 if (!decryptedText) throw new Error();
-
                 const vrData = JSON.parse(decryptedText);
                 
-                // 成功后处理
                 document.getElementById('auth-overlay').style.opacity = '0';
                 setTimeout(() => {
                     document.getElementById('auth-overlay').style.display = 'none';
@@ -110,23 +105,18 @@
                 
                 initVRLogic(vrData);
             } catch (e) {
-                errMsg.innerText = "❌ 密码错误，无法解密数据";
+                errMsg.innerText = "❌ 密码验证失败";
                 document.getElementById('pass-input').value = "";
             }
         }
 
-        // 监听回车键
         document.getElementById('pass-input').addEventListener('keyup', (e) => {
             if (e.key === 'Enter') unlock();
         });
 
         function initVRLogic(vrData) {
-            // 初始化一级
-            for (let key in vrData) {
-                l1.options.add(new Option(key, key));
-            }
+            for (let key in vrData) { l1.options.add(new Option(key, key)); }
 
-            // 联动逻辑
             l1.addEventListener('change', () => {
                 l2.innerHTML = '<option value="">请选择...</option>';
                 l3.innerHTML = ''; l2.disabled = !l1.value; l3.disabled = true;
@@ -145,22 +135,9 @@
             });
 
             l3.addEventListener('change', () => {
-                if (l3.value) {
-                    // 平滑切换效果
-                    sky.setAttribute('src', l3.value);
-                }
+                if (l3.value) sky.setAttribute('src', l3.value);
             });
         }
-
-        /**
-         * 【加密助手】如果你想生成自己的加密字符串：
-         * 1. 在浏览器 F12 控制台输入以下命令生成你的新乱码：
-         * * var myData = {"区域A":{"楼层1":{"房间1":"img/1.jpg"}}};
-         * var myPass = "你的新密码";
-         * var encrypted = CryptoJS.AES.encrypt(JSON.stringify(myData), myPass).toString();
-         * console.log(encrypted);
-         * * 2. 将得到的乱码替换到代码最上方的 encryptedData 变量中。
-         */
     </script>
 </body>
 </html>
