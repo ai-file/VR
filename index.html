@@ -26,16 +26,19 @@
             padding: 12px 40px; background: #00d1b2; border: none; border-radius: 12px;
             color: white; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.3s;
         }
-        button:hover { background: #00fa9a; }
         .vr-menu {
             position: absolute; top: 20px; left: 20px; z-index: 999;
-            background: rgba(0, 0, 0, 0.8); padding: 20px; border-radius: 16px;
-            color: white; width: 240px; display: none; border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0, 0, 0, 0.85); padding: 20px; border-radius: 16px;
+            color: white; width: 260px; display: none; border: 1px solid rgba(255,255,255,0.1);
         }
         .vr-menu h2 { margin: 0 0 20px 0; font-size: 18px; color: #00d1b2; text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        label { display: block; font-size: 11px; color: #888; margin: 12px 0 6px 0; text-transform: uppercase; }
-        select { width: 100%; padding: 12px; background: #111; color: white; border: 1px solid #444; border-radius: 8px; outline: none; margin-bottom: 5px;}
-        #loading-tip { color: #00fa9a; font-size: 12px; margin-top: 10px; display: none; text-align: center; font-weight: bold; }
+        label { display: block; font-size: 11px; color: #888; margin: 12px 0 6px 0; }
+        select { width: 100%; padding: 12px; background: #111; color: white; border: 1px solid #444; border-radius: 8px; outline: none; margin-bottom: 10px; }
+        
+        /* 进度条样式 */
+        #progress-container { width: 100%; background: #222; border-radius: 10px; height: 12px; margin-top: 15px; display: none; overflow: hidden; }
+        #progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #00d1b2, #00fa9a); transition: width 0.3s; }
+        #progress-text { color: #00d1b2; font-size: 12px; margin-top: 5px; text-align: center; display: none; }
     </style>
 </head>
 <body>
@@ -56,14 +59,15 @@
         <label>一级区域</label>
         <select id="lvl1"><option value="">请选择区域...</option></select>
         <label>二级目录</label>
-        <select id="lvl2" disabled><option value="">请选择目录...</option></select>
+        <select id="lvl2" disabled></select>
         <label>三级点位</label>
-        <select id="lvl3" disabled><option value="">请选择点位...</option></select>
-        <div id="loading-tip">⏳ 资源加载中...</div>
-        <div style="margin-top:20px; font-size:10px; color:#444; text-align:center;">SECURE BROWSER V2.0</div>
+        <select id="lvl3" disabled></select>
+        
+        <div id="progress-container"><div id="progress-bar"></div></div>
+        <div id="progress-text">等待选择...</div>
     </div>
 
-    <a-scene>
+    <a-scene loading-screen="enabled: false">
         <a-sky id="main-sky" color="#000" rotation="0 -90 0"></a-sky>
         <a-entity camera look-controls position="0 1.6 0"></a-entity>
     </a-scene>
@@ -73,25 +77,26 @@
         const l2 = document.getElementById('lvl2');
         const l3 = document.getElementById('lvl3');
         const sky = document.getElementById('main-sky');
-        const loadTip = document.getElementById('loading-tip');
+        const pBar = document.getElementById('progress-bar');
+        const pCont = document.getElementById('progress-container');
+        const pText = document.getElementById('progress-text');
 
         function unlock() {
             const password = document.getElementById('pass-input').value;
             if (password === "zjvr") {
-                // 重点：这里的路径必须与 GitHub 仓库中（image_bc5808.jpg）的大小写完全一致
                 const realData = {
                     "时间地点事件": {
                         "202310十一广东": {
                             "20231001_145635.jpg": "VR/时间地点事件/202310十一广东/20231001_145635.jpg"
                         },
                         "20230107重庆两江游船": {
-                            "演示全景": "https://aframe.io/aframe/examples/boilerplate/panorama/puydesancy.jpg"
+                            "两江游船全景": "VR/时间地点事件/20230107重庆两江游船/演示场景.jpg"
                         }
                     }
                 };
                 startSystem(realData);
             } else {
-                document.getElementById('err-msg').innerText = "❌ 密码验证失败";
+                document.getElementById('err-msg').innerText = "❌ 密码错误";
             }
         }
 
@@ -110,8 +115,7 @@
 
             l1.onchange = () => {
                 l2.innerHTML = '<option value="">请选择目录...</option>';
-                l3.innerHTML = '<option value="">请先选择二级</option>';
-                l2.disabled = !l1.value; l3.disabled = true;
+                l3.innerHTML = ''; l2.disabled = !l1.value; l3.disabled = true;
                 if (l1.value) for (let key in vrData[l1.value]) l2.options.add(new Option(key, key));
             };
 
@@ -125,24 +129,46 @@
             };
 
             l3.onchange = () => {
-                if (l3.value) {
-                    loadTip.style.display = 'block';
-                    loadTip.innerText = "⏳ 资源加载中...";
-                    
-                    // 修正点：自动处理路径中的中文转义
-                    const encodedPath = encodeURI(l3.value);
-                    
-                    const img = new Image();
-                    img.onload = () => {
-                        sky.setAttribute('src', encodedPath);
-                        loadTip.style.display = 'none';
-                    };
-                    img.onerror = () => {
-                        loadTip.innerText = "❌ 加载失败，请检查文件是否存在";
-                        console.error("加载失败:", encodedPath);
-                    };
-                    img.src = encodedPath;
-                }
+                if (!l3.value) return;
+
+                // 显示进度条
+                pCont.style.display = 'block';
+                pText.style.display = 'block';
+                pBar.style.width = '10%';
+                pText.innerText = "正在建立连接...";
+
+                // 核心修正：处理中文路径编码
+                const finalUrl = encodeURI(l3.value);
+
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', finalUrl, true);
+                xhr.responseType = 'blob';
+
+                xhr.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const percent = (e.loaded / e.total) * 100;
+                        pBar.style.width = percent + '%';
+                        pText.innerText = `加载中: ${Math.round(percent)}%`;
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status === 200) {
+                        const imgUrl = URL.createObjectURL(xhr.response);
+                        sky.setAttribute('src', imgUrl);
+                        pBar.style.width = '100%';
+                        pText.innerText = "✅ 加载完成";
+                        setTimeout(() => {
+                            pCont.style.display = 'none';
+                            pText.innerText = "已就绪";
+                        }, 1000);
+                    } else {
+                        pText.innerText = "❌ 文件不存在 (404)";
+                    }
+                };
+
+                xhr.onerror = () => { pText.innerText = "❌ 网络连接失败"; };
+                xhr.send();
             };
         }
 
