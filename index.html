@@ -1,20 +1,99 @@
-function unlock() {
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>VR全景 安全浏览系统</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <style>
+        body { background-color: #000; margin: 0; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
+        #auth-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, #222 0%, #000 100%);
+            z-index: 10001; display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.6s ease;
+        }
+        .auth-box {
+            background: rgba(255, 255, 255, 0.05); padding: 40px; border-radius: 24px;
+            backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1);
+            text-align: center; color: white; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        input[type="password"] {
+            padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1); color: white; font-size: 18px; text-align: center;
+            margin: 25px 0; outline: none; width: 240px;
+        }
+        button {
+            padding: 12px 40px; background: #00d1b2; border: none; border-radius: 12px;
+            color: white; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.3s;
+        }
+        button:hover { background: #00fa9a; }
+        .vr-menu {
+            position: absolute; top: 20px; left: 20px; z-index: 999;
+            background: rgba(0, 0, 0, 0.8); padding: 20px; border-radius: 16px;
+            color: white; width: 240px; display: none; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .vr-menu h2 { margin: 0 0 20px 0; font-size: 18px; color: #00d1b2; text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        label { display: block; font-size: 11px; color: #888; margin: 12px 0 6px 0; text-transform: uppercase; }
+        select { width: 100%; padding: 12px; background: #111; color: white; border: 1px solid #444; border-radius: 8px; outline: none; margin-bottom: 5px;}
+        #loading-tip { color: #00fa9a; font-size: 12px; margin-top: 10px; display: none; text-align: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-overlay">
+        <div class="auth-box">
+            <h2>🔒 访问受限</h2>
+            <p style="color:#aaa; font-size:14px">请输入授权密码查看 VR 全景内容</p>
+            <input type="password" id="pass-input" placeholder="请输入密码" autofocus>
+            <br>
+            <button onclick="unlock()">解锁进入</button>
+            <p id="err-msg" style="color: #ff4757; font-size: 13px; margin-top: 15px;"></p>
+        </div>
+    </div>
+
+    <div class="vr-menu" id="main-menu">
+        <h2>VR 全景导航</h2>
+        <label>一级区域</label>
+        <select id="lvl1"><option value="">请选择区域...</option></select>
+        <label>二级目录</label>
+        <select id="lvl2" disabled><option value="">请先选择一级</option></select>
+        <label>三级点位</label>
+        <select id="lvl3" disabled><option value="">请先选择二级</option></select>
+        <div id="loading-tip">⏳ 资源加载中...</div>
+        <div style="margin-top:20px; font-size:10px; color:#444; text-align:center;">SECURE BROWSER V2.0</div>
+    </div>
+
+    <a-scene id="scene" loading-screen="dotsColor: #00d1b2; backgroundColor: black">
+        <a-sky id="main-sky" src="" color="#000" rotation="0 -90 0"></a-sky>
+        <a-entity camera look-controls position="0 1.6 0"></a-entity>
+    </a-scene>
+
+    <script>
+        const l1 = document.getElementById('lvl1');
+        const l2 = document.getElementById('lvl2');
+        const l3 = document.getElementById('lvl3');
+        const sky = document.getElementById('main-sky');
+        const loadTip = document.getElementById('loading-tip');
+
+        function unlock() {
             const password = document.getElementById('pass-input').value;
             if (password === "zjvr") {
+                // 严格匹配您的仓库结构：VR (文件夹) -> 时间地点事件 -> ...
                 const realData = {
                     "时间地点事件": {
                         "20230107重庆两江游船": {
-                            "演示场景": "https://aframe.io/aframe/examples/boilerplate/panorama/puydesancy.jpg"
+                            "游船全景": "VR/时间地点事件/20230107重庆两江游船/演示场景.jpg" 
                         },
                         "202310十一广东": {
-                            // 修正点：路径前必须加上 /VR/ 或确保路径相对于 index.html 正确
-                            // 根据您的仓库结构，index.html 在根部，文件夹 VR 也在根部
                             "20231001_145635.jpg": "VR/时间地点事件/202310十一广东/20231001_145635.jpg"
+                        },
+                        "202403-202404西双版纳": {
+                            "阅览室": "VR/时间地点事件/202403-202404西双版纳/20240412_110030.jpg"
                         }
                     },
-                    "其他区域": {
-                        "202403-202404西双版纳": {
-                            "阅览室": "VR/202403-202404西双版纳/阅览室.jpg" 
+                    "时间流": {
+                        "默认分类": {
+                            "演示点位": "https://cdn.aframe.io/360-image-gallery-boilerplate/img/city.jpg"
                         }
                     }
                 };
@@ -23,3 +102,63 @@ function unlock() {
                 document.getElementById('err-msg').innerText = "❌ 密码验证失败";
             }
         }
+
+        function startSystem(vrData) {
+            document.getElementById('auth-overlay').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('auth-overlay').style.display = 'none';
+                document.getElementById('main-menu').style.display = 'block';
+                initVRLogic(vrData);
+            }, 600);
+        }
+
+        function initVRLogic(vrData) {
+            l1.innerHTML = '<option value="">请选择区域...</option>';
+            for (let key in vrData) l1.options.add(new Option(key, key));
+
+            l1.onchange = () => {
+                l2.innerHTML = '<option value="">请选择目录...</option>';
+                l3.innerHTML = '<option value="">请先选择二级</option>';
+                l2.disabled = !l1.value; l3.disabled = true;
+                if (l1.value) for (let key in vrData[l1.value]) l2.options.add(new Option(key, key));
+            };
+
+            l2.onchange = () => {
+                l3.innerHTML = '<option value="">请选择点位...</option>';
+                l3.disabled = !l2.value;
+                if (l2.value) {
+                    const scenes = vrData[l1.value][l2.value];
+                    for (let name in scenes) l3.options.add(new Option(name, scenes[name]));
+                }
+            };
+
+            l3.onchange = () => {
+                if (l3.value) {
+                    loadTip.style.display = 'block';
+                    loadTip.innerText = "⏳ 资源加载中...";
+                    
+                    // 修正点 1：对包含中文的路径进行转义编码，防止 GitHub 无法识别
+                    let finalPath = l3.value;
+                    if (!finalPath.startsWith('http')) {
+                        // 自动处理中文路径编码
+                        finalPath = encodeURI(finalPath);
+                    }
+                    
+                    const img = new Image();
+                    img.onload = () => {
+                        sky.setAttribute('src', finalPath);
+                        loadTip.style.display = 'none';
+                    };
+                    img.onerror = () => {
+                        loadTip.innerText = "❌ 文件不存在或路径错误";
+                        console.error("无法加载资源:", finalPath);
+                    };
+                    img.src = finalPath;
+                }
+            };
+        }
+
+        document.getElementById('pass-input').addEventListener('keyup', (e) => { if (e.key === 'Enter') unlock(); });
+    </script>
+</body>
+</html>
