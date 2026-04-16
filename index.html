@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>VR全景 最终修正版</title>
+    <title>VR全景 高性能浏览系统</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
         body { background-color: #000; margin: 0; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
@@ -20,10 +20,8 @@
             color: white; width: 260px; display: none; border: 1px solid #333;
         }
         select { width: 100%; padding: 12px; background: #222; color: white; border: 1px solid #444; border-radius: 6px; margin-bottom: 12px; cursor: pointer; }
-        #loading-ui { margin-top: 15px; text-align: center; }
-        .progress-bar { width: 100%; background: #333; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 8px; display: none; }
-        .progress-inner { width: 0%; height: 100%; background: #00d1b2; transition: width 0.3s; }
-        #status-text { font-size: 12px; color: #00fa9a; }
+        #status-text { font-size: 13px; color: #00fa9a; margin-top: 10px; text-align: center; min-height: 1.2em; }
+        .loader-info { font-size: 10px; color: #888; text-align: center; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -43,14 +41,12 @@
         <select id="lvl2" disabled><option value="">选择目录</option></select>
         <select id="lvl3" disabled><option value="">选择点位</option></select>
         
-        <div id="loading-ui">
-            <div id="status-text">系统就绪</div>
-            <div class="progress-bar" id="p-bar"><div class="progress-inner" id="p-inner"></div></div>
-        </div>
+        <div id="status-text">系统就绪</div>
+        <div class="loader-info">SECURE BROWSER V2.1 (Auto-Scale)</div>
     </div>
 
-    <a-scene loading-screen="enabled: false">
-        <a-sky id="main-sky" color="#000" rotation="0 -90 0"></a-sky>
+    <a-scene loading-screen="enabled: false" renderer="antialias: true; colorManagement: true;">
+        <a-sky id="main-sky" color="#000" rotation="0 -90 0" material="shader: flat; npot: true;"></a-sky>
         <a-entity camera look-controls position="0 1.6 0"></a-entity>
     </a-scene>
 
@@ -60,22 +56,17 @@
         const l3 = document.getElementById('lvl3');
         const sky = document.getElementById('main-sky');
         const statusText = document.getElementById('status-text');
-        const pBar = document.getElementById('p-bar');
-        const pInner = document.getElementById('p-inner');
 
         function unlock() {
             if (document.getElementById('pass-input').value === "zjvr") {
-                // 【核心修正】：根据 image_bd2da9.png 最新的目录结构手动对齐路径
+                // 根据您的目录结构精准配置路径
                 const realData = {
                     "时间地点事件": {
                         "202310十一广东": {
                             "20231001_145635.jpg": "VR/时间地点事件/202310十一广东/20231001_145635.jpg"
                         },
                         "20230107重庆两江游船": {
-                            "游船场景1": "VR/时间地点事件/20230107重庆两江游船/20230107_174542.jpg"
-                        },
-                        "202403-202404西双版纳": {
-                            "版纳全景": "VR/时间地点事件/202403-202404西双版纳/您的文件名.jpg"
+                            "游船全景": "VR/时间地点事件/20230107重庆两江游船/20230107_174542.jpg" 
                         }
                     }
                 };
@@ -108,42 +99,49 @@
             l3.onchange = () => {
                 if (!l3.value) return;
                 
-                // 显示加载进度
-                pBar.style.display = 'block';
-                pInner.style.width = '0%';
-                statusText.innerText = "⏳ 正在下载高清全景图...";
+                statusText.style.color = "#00fa9a";
+                statusText.innerText = "⏳ 正在拉取高清数据...";
 
-                // 处理路径编码（解决中文路径无法访问的问题）
-                const finalPath = encodeURI(l3.value);
-
-                // 使用 XHR 获取图片以显示进度
-                const xhr = new XMLHttpRequest();
-                xhr.open('GET', finalPath, true);
-                xhr.responseType = 'blob';
-
-                xhr.onprogress = (e) => {
-                    if (e.lengthComputable) {
-                        const percent = (e.loaded / e.total) * 100;
-                        pInner.style.width = percent + '%';
-                        statusText.innerText = `已下载: ${Math.round(percent)}% (文件较大，请耐心等待)`;
-                    }
-                };
-
-                xhr.onload = () => {
-                    if (xhr.status === 200) {
-                        const imgUrl = URL.createObjectURL(xhr.response);
-                        // 强制更新 A-Frame 素材
-                        sky.setAttribute('src', ''); 
-                        sky.setAttribute('src', imgUrl);
-                        statusText.innerText = "✅ 全景渲染成功！可左右拖动视角";
-                        pBar.style.display = 'none';
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                
+                img.onload = function() {
+                    statusText.innerText = "⚙️ 优化 12K 纹理中...";
+                    
+                    // 创建画布进行降采样处理
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 硬件安全上限通常为 8192px
+                    const MAX_WIDTH = 8192;
+                    if (img.width > MAX_WIDTH) {
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = Math.floor(img.height * (MAX_WIDTH / img.width));
                     } else {
-                        statusText.innerText = "❌ 文件不存在 (404)，请检查路径大小写";
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                    }
+
+                    // 执行绘制缩放
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // 将优化后的图交给 A-Frame
+                    try {
+                        sky.setAttribute('src', canvas.toDataURL("image/jpeg", 0.85));
+                        statusText.innerText = "✅ 渲染完成，请转动视角";
+                    } catch (e) {
+                        statusText.style.color = "#ff4757";
+                        statusText.innerText = "❌ 浏览器内存不足";
                     }
                 };
 
-                xhr.onerror = () => { statusText.innerText = "❌ 加载失败，请检查网络或路径"; };
-                xhr.send();
+                img.onerror = () => {
+                    statusText.style.color = "#ff4757";
+                    statusText.innerText = "❌ 路径错误或文件丢失";
+                };
+
+                // 处理中文路径编码
+                img.src = encodeURI(l3.value);
             };
         }
         document.getElementById('pass-input').addEventListener('keyup', (e) => { if (e.key === 'Enter') unlock(); });
