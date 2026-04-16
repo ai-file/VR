@@ -1,60 +1,90 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <meta charset="utf-8">
-    <title>VR 分类浏览</title>
+    <title>分级 VR 浏览</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-      /* 控制 UI 菜单的样式 */
-      .menu-container {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        z-index: 999;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 15px;
-        border-radius: 8px;
-        color: white;
-        font-family: sans-serif;
-      }
-      select {
-        margin-top: 10px;
-        padding: 5px;
-        width: 100%;
-        cursor: pointer;
-      }
+        .vr-menu {
+            position: absolute; top: 20px; left: 20px; z-index: 999;
+            background: rgba(0, 0, 0, 0.8); padding: 20px; border-radius: 10px;
+            color: white; font-family: "Microsoft YaHei", sans-serif;
+            width: 200px;
+        }
+        .vr-menu h4 { margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 5px; }
+        .vr-menu label { font-size: 12px; color: #aaa; }
+        select {
+            width: 100%; margin: 8px 0 15px 0; padding: 8px;
+            background: #333; color: white; border: 1px solid #555; border-radius: 4px;
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
 
-    <div class="menu-container">
-      <label>选择全景场景</label>
-      <select id="scene-selector">
-        <option value="20260416_123904_035.jpg">第一个全景场景 (客厅)</option>
-        <option value="20250824_双江古镇.jpg">第二个全景场景 (卧室)</option>
-        <option value="VR/时间地点事件/202310十一广东/IMG_20231001_173837.jpg">第三个全景场景 (厨房)</option>
-      </select>
+    <div class="vr-menu">
+        <h4>选择全景图</h4>
+        
+        <label>一级目录</label>
+        <select id="primary-dir">
+            <option value="">请选择类别...</option>
+            <option value="A">一级目录 A</option>
+            <option value="B">一级目录 B</option>
+        </select>
+
+        <label>二级目录</label>
+        <select id="secondary-dir" disabled>
+            <option value="">请先选择一级目录</option>
+        </select>
     </div>
 
     <a-scene>
-      <a-assets>
-        <img id="panorama" src="img/living-room/scene1.jpg">
-      </a-assets>
-
-      <a-sky id="main-sky" src="#panorama" rotation="0 -90 0"></a-sky>
+        <a-sky id="main-sky" src="" color="#222"></a-sky>
     </a-scene>
 
     <script>
-      // 获取下拉菜单和全景天空实体
-      const selector = document.getElementById('scene-selector');
-      const sky = document.getElementById('main-sky');
+        // 1. 定义目录数据（在这里配置你的文件夹和图片路径）
+        const data = {
+            "A": [
+                { name: "二级目录 a", path: "img/A/a/photo1.jpg" },
+                { name: "二级目录 b", path: "img/A/b/photo2.jpg" }
+            ],
+            "B": [
+                { name: "二级目录 a", path: "img/B/a/photo3.jpg" },
+                { name: "二级目录 b", path: "img/B/b/photo4.jpg" }
+            ]
+        };
 
-      // 监听菜单变化
-      selector.addEventListener('change', function() {
-        const imagePath = this.value;
-        // 切换全景图路径
-        sky.setAttribute('src', imagePath);
-      });
+        const primarySelect = document.getElementById('primary-dir');
+        const secondarySelect = document.getElementById('secondary-dir');
+        const sky = document.getElementById('main-sky');
+
+        // 2. 监听一级目录变化
+        primarySelect.addEventListener('change', function() {
+            const val = this.value;
+            
+            // 清空并重置二级菜单
+            secondarySelect.innerHTML = '<option value="">请选择场景...</option>';
+            
+            if (val && data[val]) {
+                secondarySelect.disabled = false;
+                data[val].forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item.path;
+                    opt.innerHTML = item.name;
+                    secondarySelect.appendChild(opt);
+                });
+            } else {
+                secondarySelect.disabled = true;
+            }
+        });
+
+        // 3. 监听二级目录变化（切换图片）
+        secondarySelect.addEventListener('change', function() {
+            if (this.value) {
+                // 执行切换全景图
+                sky.setAttribute('src', this.value);
+            }
+        });
     </script>
-  </body>
+</body>
 </html>
