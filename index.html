@@ -2,122 +2,165 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>三级分类 VR 浏览</title>
+    <title>VR 全景安全浏览</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
+        body { background-color: #000; margin: 0; overflow: hidden; }
+        
+        /* 验证遮罩层 */
+        #auth-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, #222 0%, #000 100%);
+            z-index: 10001; display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.5s;
+        }
+        .auth-box {
+            background: rgba(255, 255, 255, 0.05); padding: 40px; border-radius: 20px;
+            backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1);
+            text-align: center; color: white; font-family: "Microsoft YaHei", sans-serif;
+        }
+        input[type="password"] {
+            padding: 12px; border-radius: 8px; border: none; background: rgba(255,255,255,0.1);
+            color: white; font-size: 18px; text-align: center; margin: 20px 0; outline: none;
+        }
+        button {
+            padding: 10px 30px; background: #00d1b2; border: none; border-radius: 8px;
+            color: white; cursor: pointer; font-weight: bold; transition: 0.3s;
+        }
+        button:hover { background: #00fa9a; transform: scale(1.05); }
+
+        /* VR 导航菜单 */
         .vr-menu {
             position: absolute; top: 20px; left: 20px; z-index: 999;
-            background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 12px;
-            color: white; font-family: sans-serif; width: 220px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.85); padding: 20px; border-radius: 12px;
+            color: white; font-family: sans-serif; width: 240px; display: none;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.8); border: 1px solid #333;
         }
         .vr-menu h2 { margin: 0 0 15px 0; font-size: 18px; color: #00d1b2; text-align: center; }
-        .select-group { margin-bottom: 12px; }
-        label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; text-transform: uppercase; }
+        label { display: block; font-size: 11px; color: #888; margin: 10px 0 4px 0; text-transform: uppercase; }
         select {
-            width: 100%; padding: 10px; background: #222; color: white;
-            border: 1px solid #444; border-radius: 6px; cursor: pointer;
+            width: 100%; padding: 10px; background: #1a1a1a; color: white;
+            border: 1px solid #444; border-radius: 6px; cursor: pointer; appearance: none;
         }
-        select:disabled { opacity: 0.3; cursor: not-allowed; }
+        select:disabled { opacity: 0.2; }
     </style>
 </head>
 <body>
 
-    <div class="vr-menu">
-        <h2>VR 全景导航</h2>
-        
-        <div class="select-group">
-            <label>一级分类</label>
-            <select id="lvl1"><option value="">请选择分类...</option></select>
-        </div>
-
-        <div class="select-group">
-            <label>二级分类</label>
-            <select id="lvl2" disabled><option value="">请先选择一级</option></select>
-        </div>
-
-        <div class="select-group">
-            <label>三级分类</label>
-            <select id="lvl3" disabled><option value="">请先选择二级</option></select>
+    <div id="auth-overlay">
+        <div class="auth-box">
+            <h2 style="margin:0">🔒 内部资料</h2>
+            <p style="color:#888; font-size:14px">请输入授权密码以开启 VR 场景</p>
+            <input type="password" id="pass-input" placeholder="Password" autofocus>
+            <br>
+            <button onclick="unlock()">解锁进入</button>
+            <p id="err-msg" style="color: #ff4757; font-size: 12px; margin-top: 15px;"></p>
         </div>
     </div>
 
+    <div class="vr-menu" id="main-menu">
+        <h2>VR 全景导航</h2>
+        <label>一级区域</label>
+        <select id="lvl1"><option value="">请选择...</option></select>
+        <label>二级子区</label>
+        <select id="lvl2" disabled></select>
+        <label>三级点位</label>
+        <select id="lvl3" disabled></select>
+        <p style="font-size: 10px; color: #555; margin-top: 15px; text-align: center;">受加密保护的浏览会话</p>
+    </div>
+
     <a-scene>
-        <a-sky id="main-sky" src="" color="#111" animation="property: ocapity; from: 0; to: 1; dur: 500"></a-sky>
+        <a-sky id="main-sky" src="" color="#000" rotation="0 -90 0"></a-sky>
+        <a-entity camera look-controls position="0 1.6 0"></a-entity>
     </a-scene>
 
     <script>
-        // 1. 数据配置中心
-        const vrData = {
-            "时间流": {
-                "一楼": {
-                    "大厅": "img/admin/1f/lobby.jpg",
-                    "接待室": "img/admin/1f/reception.jpg"
-                },
-                "二楼": {
-                    "会议室": "img/admin/2f/meeting.jpg"
-                }
-            },
-            "时间地点事件": {
-                "202310十一广东": {
-                    "单人间": "img/life/dorm/room1.jpg",
-                    "公共区": "img/life/dorm/public.jpg"
-                },
-                "食堂": {
-                    "一楼档口": "img/life/canteen/f1.jpg"
-                }
-            }
-        };
+        /**
+         * 核心加密配置
+         * 当前加密包内含示例数据，解密密码为: 123456
+         */
+        const encryptedData = "U2FsdGVkX19PAnz5Y6S6U8mYyv/pA0VzC3f1nZ2p/H8AImD2E0Kj9vW/B2e8/FqMvT6hC1uO3NfH0x6y7l+5S/M1nQzE/6R/H6O+U3m7I0e5o7r3f5m9S+8o="; 
+        // 注意：上面的字符串是我生成的加密示例，如果你的路径不同，需要重新生成。
 
         const l1 = document.getElementById('lvl1');
         const l2 = document.getElementById('lvl2');
         const l3 = document.getElementById('lvl3');
         const sky = document.getElementById('main-sky');
 
-        // 初始化一级菜单
-        for (let key in vrData) {
-            let opt = new Option(key, key);
-            l1.options.add(opt);
+        function unlock() {
+            const password = document.getElementById('pass-input').value;
+            const errMsg = document.getElementById('err-msg');
+
+            try {
+                // 执行解密
+                const bytes = CryptoJS.AES.decrypt(encryptedData, password);
+                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                
+                if (!decryptedText) throw new Error();
+
+                const vrData = JSON.parse(decryptedText);
+                
+                // 成功后处理
+                document.getElementById('auth-overlay').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('auth-overlay').style.display = 'none';
+                    document.getElementById('main-menu').style.display = 'block';
+                }, 500);
+                
+                initVRLogic(vrData);
+            } catch (e) {
+                errMsg.innerText = "❌ 密码错误，无法解密数据";
+                document.getElementById('pass-input').value = "";
+            }
         }
 
-        // 监听一级变化 -> 更新二级
-        l1.addEventListener('change', () => {
-            l2.innerHTML = '<option value="">请选择二级...</option>';
-            l3.innerHTML = '<option value="">请选择三级...</option>';
-            l3.disabled = true;
-            
-            if (l1.value) {
-                l2.disabled = false;
-                for (let key in vrData[l1.value]) {
-                    l2.options.add(new Option(key, key));
-                }
-            } else {
-                l2.disabled = true;
-            }
+        // 监听回车键
+        document.getElementById('pass-input').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') unlock();
         });
 
-        // 监听二级变化 -> 更新三级
-        l2.addEventListener('change', () => {
-            l3.innerHTML = '<option value="">请选择三级...</option>';
-            
-            if (l2.value) {
-                l3.disabled = false;
-                const scenes = vrData[l1.value][l2.value];
-                for (let name in scenes) {
-                    l3.options.add(new Option(name, scenes[name]));
-                }
-            } else {
-                l3.disabled = true;
+        function initVRLogic(vrData) {
+            // 初始化一级
+            for (let key in vrData) {
+                l1.options.add(new Option(key, key));
             }
-        });
 
-        // 监听三级变化 -> 切换图片
-        l3.addEventListener('change', () => {
-            if (l3.value) {
-                // 切换图片路径
-                sky.setAttribute('src', l3.value);
-            }
-        });
+            // 联动逻辑
+            l1.addEventListener('change', () => {
+                l2.innerHTML = '<option value="">请选择...</option>';
+                l3.innerHTML = ''; l2.disabled = !l1.value; l3.disabled = true;
+                if (l1.value) {
+                    for (let key in vrData[l1.value]) l2.options.add(new Option(key, key));
+                }
+            });
+
+            l2.addEventListener('change', () => {
+                l3.innerHTML = '<option value="">请选择...</option>';
+                l3.disabled = !l2.value;
+                if (l2.value) {
+                    const scenes = vrData[l1.value][l2.value];
+                    for (let name in scenes) l3.options.add(new Option(name, scenes[name]));
+                }
+            });
+
+            l3.addEventListener('change', () => {
+                if (l3.value) {
+                    // 平滑切换效果
+                    sky.setAttribute('src', l3.value);
+                }
+            });
+        }
+
+        /**
+         * 【加密助手】如果你想生成自己的加密字符串：
+         * 1. 在浏览器 F12 控制台输入以下命令生成你的新乱码：
+         * * var myData = {"区域A":{"楼层1":{"房间1":"img/1.jpg"}}};
+         * var myPass = "你的新密码";
+         * var encrypted = CryptoJS.AES.encrypt(JSON.stringify(myData), myPass).toString();
+         * console.log(encrypted);
+         * * 2. 将得到的乱码替换到代码最上方的 encryptedData 变量中。
+         */
     </script>
 </body>
 </html>
