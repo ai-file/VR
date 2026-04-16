@@ -2,87 +2,120 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>分级 VR 浏览</title>
+    <title>三级分类 VR 浏览</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
         .vr-menu {
             position: absolute; top: 20px; left: 20px; z-index: 999;
-            background: rgba(0, 0, 0, 0.8); padding: 20px; border-radius: 10px;
-            color: white; font-family: "Microsoft YaHei", sans-serif;
-            width: 200px;
+            background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 12px;
+            color: white; font-family: sans-serif; width: 220px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
-        .vr-menu h4 { margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 5px; }
-        .vr-menu label { font-size: 12px; color: #aaa; }
+        .vr-menu h2 { margin: 0 0 15px 0; font-size: 18px; color: #00d1b2; text-align: center; }
+        .select-group { margin-bottom: 12px; }
+        label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; text-transform: uppercase; }
         select {
-            width: 100%; margin: 8px 0 15px 0; padding: 8px;
-            background: #333; color: white; border: 1px solid #555; border-radius: 4px;
+            width: 100%; padding: 10px; background: #222; color: white;
+            border: 1px solid #444; border-radius: 6px; cursor: pointer;
         }
+        select:disabled { opacity: 0.3; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
     <div class="vr-menu">
-        <h4>选择全景图</h4>
+        <h2>VR 全景导航</h2>
         
-        <label>一级目录</label>
-        <select id="primary-dir">
-            <option value="">请选择类别...</option>
-            <option value="A">一级目录 A</option>
-            <option value="B">一级目录 B</option>
-        </select>
+        <div class="select-group">
+            <label>一级分类 (区域)</label>
+            <select id="lvl1"><option value="">请选择区域...</option></select>
+        </div>
 
-        <label>二级目录</label>
-        <select id="secondary-dir" disabled>
-            <option value="">请先选择一级目录</option>
-        </select>
+        <div class="select-group">
+            <label>二级分类 (楼层/子区)</label>
+            <select id="lvl2" disabled><option value="">请先选择一级</option></select>
+        </div>
+
+        <div class="select-group">
+            <label>三级分类 (具体场景)</label>
+            <select id="lvl3" disabled><option value="">请先选择二级</option></select>
+        </div>
     </div>
 
     <a-scene>
-        <a-sky id="main-sky" src="" color="#222"></a-sky>
+        <a-sky id="main-sky" src="" color="#111" animation="property: ocapity; from: 0; to: 1; dur: 500"></a-sky>
     </a-scene>
 
     <script>
-        // 1. 定义目录数据（在这里配置你的文件夹和图片路径）
-        const data = {
-            "A": [
-                { name: "二级目录 a", path: "img/A/a/photo1.jpg" },
-                { name: "二级目录 b", path: "img/A/b/photo2.jpg" }
-            ],
-            "B": [
-                { name: "二级目录 a", path: "img/B/a/photo3.jpg" },
-                { name: "二级目录 b", path: "img/B/b/photo4.jpg" }
-            ]
+        // 1. 数据配置中心
+        const vrData = {
+            "行政区": {
+                "一楼": {
+                    "大厅": "img/admin/1f/lobby.jpg",
+                    "接待室": "img/admin/1f/reception.jpg"
+                },
+                "二楼": {
+                    "会议室": "img/admin/2f/meeting.jpg"
+                }
+            },
+            "生活区": {
+                "宿舍楼": {
+                    "单人间": "img/life/dorm/room1.jpg",
+                    "公共区": "img/life/dorm/public.jpg"
+                },
+                "食堂": {
+                    "一楼档口": "img/life/canteen/f1.jpg"
+                }
+            }
         };
 
-        const primarySelect = document.getElementById('primary-dir');
-        const secondarySelect = document.getElementById('secondary-dir');
+        const l1 = document.getElementById('lvl1');
+        const l2 = document.getElementById('lvl2');
+        const l3 = document.getElementById('lvl3');
         const sky = document.getElementById('main-sky');
 
-        // 2. 监听一级目录变化
-        primarySelect.addEventListener('change', function() {
-            const val = this.value;
+        // 初始化一级菜单
+        for (let key in vrData) {
+            let opt = new Option(key, key);
+            l1.options.add(opt);
+        }
+
+        // 监听一级变化 -> 更新二级
+        l1.addEventListener('change', () => {
+            l2.innerHTML = '<option value="">请选择二级...</option>';
+            l3.innerHTML = '<option value="">请选择三级...</option>';
+            l3.disabled = true;
             
-            // 清空并重置二级菜单
-            secondarySelect.innerHTML = '<option value="">请选择场景...</option>';
-            
-            if (val && data[val]) {
-                secondarySelect.disabled = false;
-                data[val].forEach(item => {
-                    const opt = document.createElement('option');
-                    opt.value = item.path;
-                    opt.innerHTML = item.name;
-                    secondarySelect.appendChild(opt);
-                });
+            if (l1.value) {
+                l2.disabled = false;
+                for (let key in vrData[l1.value]) {
+                    l2.options.add(new Option(key, key));
+                }
             } else {
-                secondarySelect.disabled = true;
+                l2.disabled = true;
             }
         });
 
-        // 3. 监听二级目录变化（切换图片）
-        secondarySelect.addEventListener('change', function() {
-            if (this.value) {
-                // 执行切换全景图
-                sky.setAttribute('src', this.value);
+        // 监听二级变化 -> 更新三级
+        l2.addEventListener('change', () => {
+            l3.innerHTML = '<option value="">请选择三级...</option>';
+            
+            if (l2.value) {
+                l3.disabled = false;
+                const scenes = vrData[l1.value][l2.value];
+                for (let name in scenes) {
+                    l3.options.add(new Option(name, scenes[name]));
+                }
+            } else {
+                l3.disabled = true;
+            }
+        });
+
+        // 监听三级变化 -> 切换图片
+        l3.addEventListener('change', () => {
+            if (l3.value) {
+                // 切换图片路径
+                sky.setAttribute('src', l3.value);
             }
         });
     </script>
