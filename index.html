@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>VR全景 高性能浏览系统</title>
+    <title>VR全景 自动缩放优化版</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
         body { background-color: #000; margin: 0; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
@@ -10,8 +10,8 @@
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; z-index: 10001; display: flex; align-items: center; justify-content: center;
         }
-        .auth-box { text-align: center; color: white; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 20px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-        input { padding: 12px; border-radius: 8px; border: none; margin: 20px 0; width: 220px; text-align: center; font-size: 16px; }
+        .auth-box { text-align: center; color: white; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 20px; backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
+        input { padding: 12px; border-radius: 8px; border: none; margin: 20px 0; width: 220px; text-align: center; font-size: 16px; background: #222; color: #fff; }
         button { padding: 12px 40px; background: #00d1b2; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
         .vr-menu {
@@ -19,9 +19,8 @@
             background: rgba(0, 0, 0, 0.85); padding: 20px; border-radius: 12px;
             color: white; width: 260px; display: none; border: 1px solid #333;
         }
-        select { width: 100%; padding: 12px; background: #222; color: white; border: 1px solid #444; border-radius: 6px; margin-bottom: 12px; cursor: pointer; }
-        #status-text { font-size: 13px; color: #00fa9a; margin-top: 10px; text-align: center; min-height: 1.2em; }
-        .loader-info { font-size: 10px; color: #888; text-align: center; margin-top: 5px; }
+        select { width: 100%; padding: 12px; background: #222; color: white; border: 1px solid #444; border-radius: 6px; margin-bottom: 12px; }
+        #status-text { font-size: 13px; color: #00fa9a; margin-top: 10px; text-align: center; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -31,22 +30,20 @@
             <h2>🔒 VR 安全系统</h2>
             <input type="password" id="pass-input" placeholder="请输入授权密码" autofocus>
             <br><button onclick="unlock()">解锁进入</button>
-            <p id="err-msg" style="color: #ff4757; font-size: 14px; margin-top: 10px;"></p>
+            <p id="err-msg" style="color: #ff4757;"></p>
         </div>
     </div>
 
     <div class="vr-menu" id="main-menu">
-        <h3 style="margin:0 0 15px 0; color:#00d1b2; text-align:center;">VR 项目导航</h3>
+        <h3 style="margin:0 0 15px 0; color:#00d1b2; text-align:center;">VR 全景导航</h3>
         <select id="lvl1"><option value="">选择区域</option></select>
-        <select id="lvl2" disabled><option value="">选择目录</option></select>
-        <select id="lvl3" disabled><option value="">选择点位</option></select>
-        
+        <select id="lvl2" disabled></select>
+        <select id="lvl3" disabled></select>
         <div id="status-text">系统就绪</div>
-        <div class="loader-info">SECURE BROWSER V2.1 (Auto-Scale)</div>
     </div>
 
-    <a-scene loading-screen="enabled: false" renderer="antialias: true; colorManagement: true;">
-        <a-sky id="main-sky" color="#000" rotation="0 -90 0" material="shader: flat; npot: true;"></a-sky>
+    <a-scene loading-screen="enabled: false">
+        <a-sky id="main-sky" rotation="0 -90 0" material="shader: flat; npot: true;"></a-sky>
         <a-entity camera look-controls position="0 1.6 0"></a-entity>
     </a-scene>
 
@@ -59,14 +56,13 @@
 
         function unlock() {
             if (document.getElementById('pass-input').value === "zjvr") {
-                // 根据您的目录结构精准配置路径
                 const realData = {
                     "时间地点事件": {
                         "202310十一广东": {
-                            "20231001_145635.jpg": "VR/时间地点事件/202310十一广东/20231001_145635.jpg"
+                            "全景画面_1": "VR/时间地点事件/202310十一广东/20231001_145635.jpg"
                         },
                         "20230107重庆两江游船": {
-                            "游船全景": "VR/时间地点事件/20230107重庆两江游船/20230107_174542.jpg" 
+                            "游船实拍": "VR/时间地点事件/20230107重庆两江游船/20230107_174542.jpg"
                         }
                     }
                 };
@@ -99,48 +95,39 @@
             l3.onchange = () => {
                 if (!l3.value) return;
                 
-                statusText.style.color = "#00fa9a";
-                statusText.innerText = "⏳ 正在拉取高清数据...";
-
+                statusText.innerText = "⏳ 正在拉取高清原图...";
                 const img = new Image();
                 img.crossOrigin = "anonymous";
                 
                 img.onload = function() {
-                    statusText.innerText = "⚙️ 优化 12K 纹理中...";
+                    statusText.innerText = "⚙️ 正在压制 12K 超大纹理...";
                     
-                    // 创建画布进行降采样处理
+                    // 方案B核心：创建 Canvas 进行强制降采样
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     
-                    // 硬件安全上限通常为 8192px
-                    const MAX_WIDTH = 8192;
-                    if (img.width > MAX_WIDTH) {
-                        canvas.width = MAX_WIDTH;
-                        canvas.height = Math.floor(img.height * (MAX_WIDTH / img.width));
+                    // 浏览器支持的纹理上限通常为 8192px
+                    const MAX_W = 8192;
+                    if (img.width > MAX_W) {
+                        canvas.width = MAX_W;
+                        canvas.height = Math.floor(img.height * (MAX_W / img.width));
                     } else {
                         canvas.width = img.width;
                         canvas.height = img.height;
                     }
 
-                    // 执行绘制缩放
+                    // 绘制缩放后的图像
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     
-                    // 将优化后的图交给 A-Frame
-                    try {
-                        sky.setAttribute('src', canvas.toDataURL("image/jpeg", 0.85));
-                        statusText.innerText = "✅ 渲染完成，请转动视角";
-                    } catch (e) {
-                        statusText.style.color = "#ff4757";
-                        statusText.innerText = "❌ 浏览器内存不足";
-                    }
+                    // 将压缩后的 base64 数据传给渲染器，解决黑屏问题
+                    sky.setAttribute('src', canvas.toDataURL("image/jpeg", 0.8));
+                    statusText.innerText = "✅ 全景渲染成功！可转动视角";
                 };
 
                 img.onerror = () => {
-                    statusText.style.color = "#ff4757";
-                    statusText.innerText = "❌ 路径错误或文件丢失";
+                    statusText.innerText = "❌ 文件加载失败";
                 };
 
-                // 处理中文路径编码
                 img.src = encodeURI(l3.value);
             };
         }
